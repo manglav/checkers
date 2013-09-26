@@ -16,6 +16,9 @@ Game Class
 
 =end
 require 'colorize'
+require 'YAML'
+require 'debugger'
+
 class Piece
   MOVES = {
     :white => [[-1, -1], [-1, 1]],
@@ -29,7 +32,7 @@ class Piece
     @color = color
     @pos = pos
     @king = false
-    @symbol = "\u26C2"
+    @symbol = "P"
     @board = board
   end
 
@@ -38,6 +41,13 @@ class Piece
       MOVES.values.flatten(1)
     else
       MOVES[color]
+    end
+  end
+
+  def check_and_make_king
+    if (self.color == :red && self.pos[0] == 7) || (self.color == :white && self.pos[0] == 0)
+      self.king = true
+      self.symbol = "K"
     end
   end
 
@@ -76,6 +86,30 @@ class Piece
     possible_moves
   end
 
+  def valid_move_seq?(move_sequence)
+    puts "valid move seq"
+    puts self.king
+    debugger
+    board_dup = YAML::load(self.board.to_yaml)
+    begin
+      duped_piece = board_dup.piece_at_location(self.pos)
+      duped_piece.perform_moves!(move_sequence)
+    rescue
+      return false
+    else
+      true
+    end
+  end
+
+  def perform_moves(move_sequence)
+    if valid_move_seq?(move_sequence)
+      puts "it is valid"
+      perform_moves!(move_sequence)
+    else
+      raise InvalidMoveError.new "bad sequence of moves"
+    end
+  end
+
   def perform_moves!(move_sequence)
     ## Assume move_sequence is always an array of arrays. [[]], or [[1,2]] or [[1,2],[3,4]]
     start_pos = self.pos
@@ -85,8 +119,9 @@ class Piece
         self.board.perform_jump(start_pos, end_pos)
         start_pos = end_pos
       end
+      raise InvalidMoveError.new "You have more possible moves" if self.jumps_moves.empty?
     else
-      self.board.perform_slide(start_pos, end_pos)
+      self.board.perform_slide(start_pos, move_sequence[0])
     end
   end
 
@@ -98,19 +133,18 @@ class Piece
 
 end
 
-def setup
-  b = Board.new
-  b.pieces[11].pos = [4,4]
-  b.pieces.delete(b.piece_at_location([1,3]))
-  b.render
-  b
-end
-
 class Board
   attr_accessor :pieces
 
   def initialize
     @pieces = build_board
+  end
+
+  def dup
+    dup = Board.new
+    self.pieces do |piece|
+      dup.pieces << piece.dup
+    end
   end
 
   def valid_move?(pos)
@@ -136,7 +170,7 @@ class Board
     piece = piece_at_location(start_pos)
     raise InvalidMoveError.new "Bad Move" if !piece.slide_moves.include?(end_pos)
     piece.pos = end_pos
-    #add king
+    piece.check_and_make_king
   end
 
   def perform_jump(start_pos, end_pos)
@@ -146,7 +180,7 @@ class Board
     raise InvalidMoveError.new "Bad Move" if !piece.jumps_moves.include?(end_pos)
     piece.pos = end_pos
     pieces.delete(middle_piece)
-    #add king
+    piece.check_and_make_king
   end
 
   def build_board
@@ -207,7 +241,55 @@ class Board
   end
 end
 
+class Game
+  attr_accessor :board
 
+  def initialize
+    @board = Board.new
+  end
 
+  def play
+    until game_over?
+      @board.render
+      make_move
+    end
+  end
 
+  def make_move
+    begin
+      puts "Give moving piece location"
+      input = gets.chomp
+      p start_pos = input.scan(/\d/).map {|s| s.to_i }
+      puts "Give move sequence"
+      input = gets.chomp
+      p move_sequence = input.scan(/\d/).map {|s| s.to_i }.each_slice(2).to_a
+      board.piece_at_location(start_pos).perform_moves(move_sequence)
+    rescue InvalidMoveError => e
+      puts "STOP!"
+      puts e
+      retry
+    end
+  end
+
+  def game_over?
+  end
+
+end
+
+def setup
+  b = Board.new
+  b.pieces[11].pos = [4,4]
+  b.pieces.delete(b.piece_at_location([1,3]))
+  b.pieces.delete(b.piece_at_location([2,0]))
+  b.pieces.delete(b.piece_at_location([0,2]))
+  b.pieces[20].pos = [1,3]
+  b
+end
+a = setup
+p = a.piece_at_location([1,3])
+p.perform_moves([[0,2]])
+p p.king
+puts "____________"
+p.perform_moves([[2,0]])
+a.render
     # 8 x 8 board, pieces are on first three rows, alternating
