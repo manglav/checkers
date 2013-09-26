@@ -16,8 +16,7 @@ Game Class
 =end
 require 'colorize'
 class Piece
-  MOVES_WHITE = [[-1, -1], [-1, 1]]
-  MOVES_RED = [[1, -1], [1, 1]]
+  MOVES = {:white => [[-1, -1], [-1, 1]], :red => [[1, -1], [1, 1]]}
   attr_accessor :color, :pos, :king, :symbol
   attr_reader :board
 
@@ -29,13 +28,28 @@ class Piece
     @board = board
   end
 
+  def generate_moves
+    if king
+      return MOVES.values.flatten(1)
+    else
+      MOVES[color]
+    end
+  end
+
+  def new_position(type, direction)
+    if type == :slide
+      [pos[0] + direction[0], pos[1] + direction[1]]
+    elsif type == :jump
+      [pos[0] + 2 * direction[0], pos[1] + 2 * direction[1]]
+    end
+  end
+
+
   def slide_moves
     possible_moves = []
-    move_directions = []
-    move_directions.concat(MOVES_WHITE) if color == :white || king == true
-    move_directions.concat(MOVES_RED) if color == :red || king == true
+    move_directions = generate_moves
     move_directions.each do |direction|
-      location = [pos[0] + direction[0], pos[1] + direction[1]]
+      location = new_position(:slide, direction)
       possible_moves << location if self.board.valid_move?(location)
     end
     possible_moves
@@ -43,20 +57,21 @@ class Piece
 
   def jumps_moves
     possible_moves = []
-    move_directions = []
-    move_directions.concat(MOVES_WHITE) if color == :white || king == true
-    move_directions.concat(MOVES_RED) if color == :red || king == true
-    #dry this out
+    move_directions = generate_moves
+
     move_directions.each do |direction|
-      jump_location = [pos[0] + 2 * direction[0], pos[1] + 2 * direction[1]]
-      middle_location = [pos[0] + direction[0], pos[1] + direction[1]]
+      jump_location = new_position(:jump, direction)
+      middle_location = new_position(:slide, direction)
       middle_piece = self.board.piece_at_location(middle_location)
-      if self.board.valid_move?(jump_location) && middle_piece && middle_piece.color != self.color
+      if jump_valid_move?(middle_piece, jump_location)
         possible_moves << jump_location
       end
-
     end
     possible_moves
+  end
+
+  def jump_valid_move?(middle_piece, jump_location)
+    self.board.valid_move?(jump_location) && middle_piece && middle_piece.color != self.color
   end
 
 end
