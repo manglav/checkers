@@ -1,4 +1,4 @@
-class InvalidMoveError < ArgumentError;end
+class InvalidMoveError < ArgumentError; end
 =begin
 
 Notes
@@ -17,7 +17,11 @@ Game Class
 =end
 require 'colorize'
 class Piece
-  MOVES = {:white => [[-1, -1], [-1, 1]], :red => [[1, -1], [1, 1]]}
+  MOVES = {
+    :white => [[-1, -1], [-1, 1]],
+    :red => [[1, -1], [1, 1]]
+  }
+
   attr_accessor :color, :pos, :king, :symbol
   attr_reader :board
 
@@ -31,16 +35,17 @@ class Piece
 
   def generate_moves
     if king
-      return MOVES.values.flatten(1)
+      MOVES.values.flatten(1)
     else
       MOVES[color]
     end
   end
 
   def new_position(type, direction)
-    if type == :slide
+    case type
+    when :slide
       [pos[0] + direction[0], pos[1] + direction[1]]
-    elsif type == :jump
+    when :jump
       [pos[0] + 2 * direction[0], pos[1] + 2 * direction[1]]
     end
   end
@@ -72,34 +77,34 @@ class Piece
   end
 
   def perform_moves!(move_sequence)
-    #needs to take one slide, or one jump, or many jumps
-    #assume move sequence is end_pos, next end_pos, etc...
-    # [0,0] [1,1]  [2,2] [3,3]
     start_pos = self.pos
-    # input can be [1,2] or [[1,2], [3,4]]
-    if move_sequence[0].is_a?(Array) && move_sequence.count > 1
-      # this means is a series of jumps
-      puts "Series of jumps"
+    if list_of_jump_moves?(move_sequence)
       move_sequence.each do |end_pos|
         self.board.perform_jump(start_pos, end_pos)
         start_pos = end_pos
       end
     else
-      end_pos = move_sequence
-      # this means it's either one jump or slide
-      # check by checking if the index if off by 1 or 2
-      delta = (start_pos[0] - end_pos[0]) % 2
-      puts delta
-      if delta == 0 # off by 2, jump
-        self.board.perform_jump(start_pos, end_pos)
-      else # slide
-        self.board.perform_slide(start_pos, end_pos)
-      end
+      perform_single_move!(start_pos, move_sequence)
     end
   end
 
+  def perform_single_move!(start_pos, end_pos)
+    delta = (start_pos[0] - end_pos[0]) % 2
+    if delta == 0
+      self.board.perform_jump(start_pos, end_pos)
+    else
+      self.board.perform_slide(start_pos, end_pos)
+    end
+  end
+
+  def list_of_jump_moves?(move_sequence)
+    move_sequence[0].is_a?(Array) && move_sequence.count > 1
+  end
+
   def jump_valid_move?(middle_piece, jump_location)
-    self.board.valid_move?(jump_location) && middle_piece && middle_piece.color != self.color
+    self.board.valid_move?(jump_location) &&
+    middle_piece                          &&
+    middle_piece.color != self.color
   end
 
 end
@@ -114,6 +119,7 @@ end
 
 class Board
   attr_accessor :pieces
+
   def initialize
     @pieces = build_board
   end
@@ -129,7 +135,8 @@ class Board
   end
 
   def piece_between_pos(start_pos, end_pos)
-    piece_at_location([(start_pos[0] + end_pos[0])/2, (start_pos[1] + end_pos[1])/2])
+    pos = [(start_pos[0] + end_pos[0])/2, (start_pos[1] + end_pos[1])/2]
+    piece_at_location(pos)
   end
 
   def all_locations
@@ -139,7 +146,8 @@ class Board
   def perform_slide(start_pos, end_pos)
     piece = piece_at_location(start_pos)
     raise InvalidMoveError.new "Bad Move" if !piece.slide_moves.include?(end_pos)
-    piece.pos = end_pos if piece.slide_moves.include?(end_pos)
+    piece.pos = end_pos
+    #add king
   end
 
   def perform_jump(start_pos, end_pos)
@@ -149,6 +157,7 @@ class Board
     raise InvalidMoveError.new "Bad Move" if !piece.jumps_moves.include?(end_pos)
     piece.pos = end_pos
     pieces.delete(middle_piece)
+    #add king
   end
 
   def build_board
@@ -182,6 +191,7 @@ class Board
     red_pieces + black_pieces
   end
 
+  # def to_s
   def render
     print_array = Array.new(8) { Array.new(8) }
 
