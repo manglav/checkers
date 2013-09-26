@@ -77,28 +77,17 @@ class Piece
   end
 
   def perform_moves!(move_sequence)
+    ## Assume move_sequence is always an array of arrays. [[]], or [[1,2]] or [[1,2],[3,4]]
     start_pos = self.pos
-    if list_of_jump_moves?(move_sequence)
+    delta = (start_pos[0] - move_sequence[0][0]) % 2
+    if delta == 0
       move_sequence.each do |end_pos|
         self.board.perform_jump(start_pos, end_pos)
         start_pos = end_pos
       end
     else
-      perform_single_move!(start_pos, move_sequence)
-    end
-  end
-
-  def perform_single_move!(start_pos, end_pos)
-    delta = (start_pos[0] - end_pos[0]) % 2
-    if delta == 0
-      self.board.perform_jump(start_pos, end_pos)
-    else
       self.board.perform_slide(start_pos, end_pos)
     end
-  end
-
-  def list_of_jump_moves?(move_sequence)
-    move_sequence[0].is_a?(Array) && move_sequence.count > 1
   end
 
   def jump_valid_move?(middle_piece, jump_location)
@@ -125,9 +114,9 @@ class Board
   end
 
   def valid_move?(pos)
-    return false if !pos[0].between?(0,7) && !pos[1].between?(0,7)
-    return false if all_locations.include?(pos)
-    true
+    pos[0].between?(0,7) &&
+    pos[1].between?(0,7) &&
+    !all_locations.include?(pos)
   end
 
   def piece_at_location(location)
