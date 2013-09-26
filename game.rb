@@ -1,3 +1,4 @@
+class InvalidMoveError < ArgumentError;end
 =begin
 
 Notes
@@ -70,10 +71,45 @@ class Piece
     possible_moves
   end
 
+  def perform_moves!(move_sequence)
+    #needs to take one slide, or one jump, or many jumps
+    #assume move sequence is end_pos, next end_pos, etc...
+    # [0,0] [1,1]  [2,2] [3,3]
+    start_pos = self.pos
+    # input can be [1,2] or [[1,2], [3,4]]
+    if move_sequence[0].is_a?(Array) && move_sequence.count > 1
+      # this means is a series of jumps
+      puts "Series of jumps"
+      move_sequence.each do |end_pos|
+        self.board.perform_jump(start_pos, end_pos)
+        start_pos = end_pos
+      end
+    else
+      end_pos = move_sequence
+      # this means it's either one jump or slide
+      # check by checking if the index if off by 1 or 2
+      delta = (start_pos[0] - end_pos[0]) % 2
+      puts delta
+      if delta == 0 # off by 2, jump
+        self.board.perform_jump(start_pos, end_pos)
+      else # slide
+        self.board.perform_slide(start_pos, end_pos)
+      end
+    end
+  end
+
   def jump_valid_move?(middle_piece, jump_location)
     self.board.valid_move?(jump_location) && middle_piece && middle_piece.color != self.color
   end
 
+end
+
+def setup
+  b = Board.new
+  b.pieces[11].pos = [4,4]
+  b.pieces.delete(b.piece_at_location([1,3]))
+  b.render
+  b
 end
 
 class Board
@@ -90,17 +126,29 @@ class Board
 
   def piece_at_location(location)
     pieces.select {|piece| piece.pos == location}[0]
+  end
 
+  def piece_between_pos(start_pos, end_pos)
+    piece_at_location([(start_pos[0] + end_pos[0])/2, (start_pos[1] + end_pos[1])/2])
   end
 
   def all_locations
     pieces.map {|piece| piece.pos}
   end
 
-  def perform_slide
+  def perform_slide(start_pos, end_pos)
+    piece = piece_at_location(start_pos)
+    raise InvalidMoveError.new "Bad Move" if !piece.slide_moves.include?(end_pos)
+    piece.pos = end_pos if piece.slide_moves.include?(end_pos)
   end
 
-  def perform_jump
+  def perform_jump(start_pos, end_pos)
+    piece = piece_at_location(start_pos)
+    middle_piece = piece_between_pos(start_pos, end_pos)
+    p piece.jumps_moves
+    raise InvalidMoveError.new "Bad Move" if !piece.jumps_moves.include?(end_pos)
+    piece.pos = end_pos
+    pieces.delete(middle_piece)
   end
 
   def build_board
