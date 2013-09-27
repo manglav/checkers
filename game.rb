@@ -1,23 +1,8 @@
-class InvalidMoveError < ArgumentError; end
-=begin
-
-Notes
-
-Board Class
-  #perform_slide - needs to validate move
-  #perform_jump  - needs to validate move, remove jumped piece
-
-  illegal move should raise Invalid move error
-
-Piece Class
-  # slide_moves - lists possible moves
-  # jumps_moves - lists possible moves
-Game Class
-
-=end
 require 'colorize'
 require 'YAML'
 require 'debugger'
+
+class InvalidMoveError < ArgumentError; end
 
 class Piece
   MOVES = {
@@ -87,15 +72,13 @@ class Piece
   end
 
   def valid_move_seq?(move_sequence)
-    puts "valid move seq"
-    puts self.king
-    debugger
     board_dup = YAML::load(self.board.to_yaml)
     begin
       duped_piece = board_dup.piece_at_location(self.pos)
       duped_piece.perform_moves!(move_sequence)
-    rescue
-      return false
+    rescue InvalidMoveError => e
+      self.board.errors << e.message
+      false
     else
       true
     end
@@ -106,7 +89,7 @@ class Piece
       puts "it is valid"
       perform_moves!(move_sequence)
     else
-      raise InvalidMoveError.new "bad sequence of moves"
+      false
     end
   end
 
@@ -119,7 +102,7 @@ class Piece
         self.board.perform_jump(start_pos, end_pos)
         start_pos = end_pos
       end
-      raise InvalidMoveError.new "You have more possible moves" if self.jumps_moves.empty?
+      raise InvalidMoveError.new "You have more possible moves" if self.jumps_moves.any?
     else
       self.board.perform_slide(start_pos, move_sequence[0])
     end
@@ -134,10 +117,11 @@ class Piece
 end
 
 class Board
-  attr_accessor :pieces
+  attr_accessor :pieces, :errors
 
   def initialize
     @pieces = build_board
+    @errors = []
   end
 
   def dup
@@ -256,18 +240,15 @@ class Game
   end
 
   def make_move
-    begin
-      puts "Give moving piece location"
-      input = gets.chomp
-      p start_pos = input.scan(/\d/).map {|s| s.to_i }
-      puts "Give move sequence"
-      input = gets.chomp
-      p move_sequence = input.scan(/\d/).map {|s| s.to_i }.each_slice(2).to_a
-      board.piece_at_location(start_pos).perform_moves(move_sequence)
-    rescue InvalidMoveError => e
-      puts "STOP!"
-      puts e
-      retry
+    puts "Give moving piece location"
+    input = gets.chomp
+    p start_pos = input.scan(/[01234567]/).map {|s| s.to_i }
+    puts "Give move sequence"
+    input = gets.chomp
+    p move_sequence = input.scan(/[01234567]/).map {|s| s.to_i }.each_slice(2).to_a
+    if board.piece_at_location(start_pos).perform_moves(move_sequence)
+    else
+      puts board.errors.pop
     end
   end
 
@@ -275,21 +256,4 @@ class Game
   end
 
 end
-
-def setup
-  b = Board.new
-  b.pieces[11].pos = [4,4]
-  b.pieces.delete(b.piece_at_location([1,3]))
-  b.pieces.delete(b.piece_at_location([2,0]))
-  b.pieces.delete(b.piece_at_location([0,2]))
-  b.pieces[20].pos = [1,3]
-  b
-end
-a = setup
-p = a.piece_at_location([1,3])
-p.perform_moves([[0,2]])
-p p.king
-puts "____________"
-p.perform_moves([[2,0]])
-a.render
     # 8 x 8 board, pieces are on first three rows, alternating
